@@ -67,9 +67,9 @@ CREATE TABLE IF NOT EXISTS applications (
 );
 
 -- Seed Data
--- admin账号密码 admin123456 的 SHA-256 = 8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918
+-- admin账号密码 admin123456 的 SHA-256 = ac0e7d037817094e9e0b4441f9bae3209d67b02fa484917065f71b16109a1a78
 INSERT OR IGNORE INTO users (id, username, display_name, password_hash, role, is_active)
-VALUES (1, 'admin@company.com', '开发经理', '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918', 'manager', 1);
+VALUES (1, 'admin@company.com', '开发经理', 'ac0e7d037817094e9e0b4441f9bae3209d67b02fa484917065f71b16109a1a78', 'manager', 1);
 
 INSERT OR IGNORE INTO projects (name, sort_order) VALUES ('Converge', 1);
 INSERT OR IGNORE INTO credit_options (amount, sort_order) VALUES (2000, 1), (5000, 2);

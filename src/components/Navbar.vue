@@ -4,6 +4,7 @@
       <div class="flex justify-between h-16">
         <div class="flex items-center">
           <span class="text-xl font-bold">⚡ CodePower</span>
+          <span class="ml-2 text-xs bg-blue-700 px-2 py-0.5 rounded text-blue-100 font-mono">v1.1</span>
         </div>
         <div class="flex items-center">
           <div class="relative">

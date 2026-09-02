@@ -38,15 +38,15 @@ export function buildMailContent(template: MailTemplateData, app: ApplicationDat
   const endTime = `${endYear}-${endMonth}-${endDay}`;
 
   const variables: Record<string, string> = {
-    '${applicantName}': applicantName,
-    '${applicantEmail}': applicantEmail,
-    '${projectName}': projectName,
-    '${credits}': String(app.credits || 0),
-    '${finalReason}': finalReason,
-    '${applyTime}': applyTime,
-    '${endTime}': endTime,
-    '${endDate}': endTime,
-    '${managerName}': managerName || '开发经理',
+    applicantName,
+    applicantEmail,
+    projectName,
+    credits: String(app.credits || 0),
+    finalReason,
+    applyTime,
+    endTime,
+    endDate: endTime,
+    managerName: managerName || '开发经理',
   };
 
   let to = template.recipient_email || '';
@@ -54,11 +54,13 @@ export function buildMailContent(template: MailTemplateData, app: ApplicationDat
   let subject = template.subject || '';
   let body = template.body_template || '';
 
+  // 无论大小写或有无空格，均使用正则全量替换
   for (const [key, value] of Object.entries(variables)) {
-    to = to.split(key).join(value);
-    cc = cc.split(key).join(value);
-    subject = subject.split(key).join(value);
-    body = body.split(key).join(value);
+    const reg = new RegExp(`\\$\\{\\s*${key}\\s*\\}`, 'gi');
+    to = to.replace(reg, value);
+    cc = cc.replace(reg, value);
+    subject = subject.replace(reg, value);
+    body = body.replace(reg, value);
   }
 
   // 先把字面量的 "\n"、"\r\n" 还原为标准换行，避免数据库或转义导致明文展示 "\n"

@@ -45,21 +45,53 @@
                 <button @click="handleReview(app, 'approve')" class="text-green-600 hover:text-green-900 mr-3">同意</button>
                 <button @click="handleReview(app, 'reject')" class="text-red-600 hover:text-red-900">拒绝</button>
               </template>
-              <template v-else-if="app.status === 'approved' && outLookData[app.id]">
-                 <button @click="copyOutlookManual(outLookData[app.id])" class="text-blue-600 hover:text-blue-900">复制邮件内容</button>
+              <template v-else-if="app.status === 'approved'">
+                <button @click="triggerAppOutlook(app)" class="text-blue-600 hover:text-blue-900 mr-3">唤起Outlook</button>
+                <button @click="copyAppMail(app)" class="text-gray-600 hover:text-gray-900">复制草稿</button>
               </template>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
+
+    <!-- 审批通过并唤起 Outlook 提示弹窗 -->
+    <Modal :visible="showSuccessModal" title="审批通过 - Outlook 邮件拉起" @close="showSuccessModal = false">
+      <div class="space-y-4 text-sm text-gray-700">
+        <div class="flex items-center text-green-600 font-semibold text-base">
+          <span>✓ 该单据已审批通过！系统已尝试触发打开 Outlook。</span>
+        </div>
+        <p class="text-gray-600 leading-relaxed">
+          如果您的浏览器拦截了自动唤起，或系统尚未弹出经典版 Outlook 窗口，可点击下方按钮直接唤起，或一键复制草稿内容手动发送。
+        </p>
+        <div class="p-3 bg-gray-50 rounded border border-gray-200 space-y-1 text-xs">
+          <div><span class="font-medium text-gray-600">收件人：</span>{{ currentMailDetail.to }}</div>
+          <div v-if="currentMailDetail.cc"><span class="font-medium text-gray-600">抄送：</span>{{ currentMailDetail.cc }}</div>
+          <div><span class="font-medium text-gray-600">主题：</span>{{ currentMailDetail.subject }}</div>
+        </div>
+      </div>
+      <template #footer>
+        <div class="flex flex-wrap items-center justify-end gap-2 w-full">
+          <button @click="copySuccessMail" class="px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 text-sm font-medium">
+            一键复制草稿内容
+          </button>
+          <a :href="currentMailDetail.mailtoUrl" @click="showSuccessModal = false" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium">
+            直接在 Outlook 中打开 ↗
+          </a>
+          <button @click="showSuccessModal = false" class="px-3 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 text-sm">
+            关闭
+          </button>
+        </div>
+      </template>
+    </Modal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { get, post } from '../../utils/request'
-import { launchOutlookDraft } from '../../utils/outlook'
+import { launchOutlookDraft, buildMailContent, MailTemplateData } from '../../utils/outlook'
+import Modal from '../../components/Modal.vue'
 
 const statusOptions = [
   { label: '待审批', value: 'pending' },
@@ -70,7 +102,10 @@ const statusOptions = [
 
 const currentStatus = ref('pending')
 const applications = ref<any[]>([])
-const outLookData = ref<Record<string, {subject: string, body: string}>>({})
+const cachedTemplate = ref<MailTemplateData | null>(null)
+
+const showSuccessModal = ref(false)
+const currentMailDetail = ref({ to: '', cc: '', subject: '', body: '', mailtoUrl: '' })
 
 const fetchApplications = async () => {
   try {
@@ -81,9 +116,23 @@ const fetchApplications = async () => {
   }
 }
 
+const loadTemplate = async () => {
+  try {
+    cachedTemplate.value = await get('/manager/mail-template')
+  } catch (e) {
+    console.error('Failed to load mail template:', e)
+  }
+}
+
 onMounted(() => {
   fetchApplications()
+  loadTemplate()
 })
+
+const getManagerName = () => {
+  const userStr = localStorage.getItem('cp_user')
+  return userStr ? JSON.parse(userStr).displayName : '开发经理'
+}
 
 const handleReview = async (app: any, action: 'approve' | 'reject') => {
   if (!confirm(`确定要${action === 'approve' ? '同意' : '拒绝'}该申请吗？`)) return
@@ -93,36 +142,23 @@ const handleReview = async (app: any, action: 'approve' | 'reject') => {
     app.status = action === 'approve' ? 'approved' : 'rejected'
 
     if (action === 'approve') {
-      const template = await get('/manager/mail-template')
-      const userStr = localStorage.getItem('cp_user')
-      const managerName = userStr ? JSON.parse(userStr).displayName : '开发经理'
-      const approvedApp = res || app
-
-      // 变量替换映射（用于备用复制功能）
-      const applyTime = new Date(approvedApp.created_at || approvedApp.createdAt || '').toLocaleString('zh-CN', { hour12: false })
-      const varMap: Record<string, string> = {
-        '${applicantName}': approvedApp.applicant_name || approvedApp.applicantName || '',
-        '${applicantEmail}': approvedApp.applicant_email || approvedApp.applicantEmail || '',
-        '${projectName}': approvedApp.project_name || approvedApp.projectName || '',
-        '${credits}': String(approvedApp.credits || ''),
-        '${finalReason}': approvedApp.final_reason || approvedApp.finalReason || '',
-        '${applyTime}': applyTime,
-        '${managerName}': managerName,
+      if (!cachedTemplate.value) {
+        await loadTemplate()
       }
-      const replaceVars = (tpl: string) =>
-        Object.entries(varMap).reduce((s, [k, v]) => s.replaceAll(k, v), tpl)
+      const template = (cachedTemplate.value || await get('/manager/mail-template')) as MailTemplateData
+      cachedTemplate.value = template
 
-      const finalSubject = replaceVars(template.subject || '')
-      const finalBody = replaceVars(template.body_template || '')
+      const approvedApp = res || app
+      const managerName = getManagerName()
+      const detail = buildMailContent(template, approvedApp, managerName)
 
-      // 存入替换后内容，供手动复制兜底使用
-      outLookData.value[app.id] = { subject: finalSubject, body: finalBody }
+      currentMailDetail.value = detail
+      showSuccessModal.value = true
 
       try {
         launchOutlookDraft(template, approvedApp, managerName)
-        alert('审批通过！已尝试唤起 Outlook。若邮件未弹出，可点击"复制邮件内容"手动发送。')
       } catch (e) {
-        alert('审批已通过，但唤起 Outlook 失败。请点击"复制邮件内容"手动发送邮件。')
+        console.warn('Auto launch outlook suppressed:', e)
       }
     }
   } catch (err: any) {
@@ -130,9 +166,37 @@ const handleReview = async (app: any, action: 'approve' | 'reject') => {
   }
 }
 
-const copyOutlookManual = (data: {subject: string, body: string}) => {
-  navigator.clipboard.writeText(`主题: ${data.subject}\n\n正文:\n${data.body}`)
-  alert('已复制到剪贴板')
+const triggerAppOutlook = async (app: any) => {
+  if (!cachedTemplate.value) {
+    await loadTemplate()
+  }
+  const template = cachedTemplate.value as MailTemplateData | null
+  if (!template) return
+  const managerName = getManagerName()
+  const detail = buildMailContent(template, app, managerName)
+  currentMailDetail.value = detail
+  showSuccessModal.value = true
+  launchOutlookDraft(template, app, managerName)
+}
+
+const copyAppMail = async (app: any) => {
+  if (!cachedTemplate.value) {
+    await loadTemplate()
+  }
+  const template = cachedTemplate.value as MailTemplateData | null
+  if (!template) return
+  const managerName = getManagerName()
+  const detail = buildMailContent(template, app, managerName)
+  const text = `收件人: ${detail.to}\n抄送: ${detail.cc}\n主题: ${detail.subject}\n\n正文:\n${detail.body}`
+  navigator.clipboard.writeText(text)
+  alert('草稿内容已复制到剪贴板！')
+}
+
+const copySuccessMail = () => {
+  const d = currentMailDetail.value
+  const text = `收件人: ${d.to}\n抄送: ${d.cc}\n主题: ${d.subject}\n\n正文:\n${d.body}`
+  navigator.clipboard.writeText(text)
+  alert('草稿内容已复制到剪贴板！')
 }
 
 const formatDate = (dateStr: string) => {

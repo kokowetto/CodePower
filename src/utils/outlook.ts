@@ -1,49 +1,85 @@
-interface MailTemplateData {
+export interface MailTemplateData {
   recipient_email: string;
   cc_email: string;
   subject: string;
   body_template: string;
 }
 
-interface ApplicationData {
-  applicant_name: string;
-  applicant_email: string;
-  project_name: string;
+export interface ApplicationData {
+  applicant_name?: string;
+  applicant_email?: string;
+  project_name?: string;
+  applicantName?: string;
+  applicantEmail?: string;
+  projectName?: string;
   credits: number;
-  final_reason: string;
-  created_at: string;
+  final_reason?: string;
+  finalReason?: string;
+  created_at?: string;
+  createdAt?: string;
 }
 
-export function launchOutlookDraft(template: MailTemplateData, app: ApplicationData, managerName: string): void {
-  const applyTime = new Date(app.created_at).toLocaleString('zh-CN', { hour12: false });
-  
+export function buildMailContent(template: MailTemplateData, app: ApplicationData, managerName: string) {
+  const applicantName = app.applicant_name || app.applicantName || '';
+  const applicantEmail = app.applicant_email || app.applicantEmail || '';
+  const projectName = app.project_name || app.projectName || '';
+  const finalReason = app.final_reason || app.finalReason || '';
+  const applyTime = new Date(app.created_at || app.createdAt || '').toLocaleString('zh-CN', { hour12: false });
+
+  const variables: Record<string, string> = {
+    '${applicantName}': applicantName,
+    '${applicantEmail}': applicantEmail,
+    '${projectName}': projectName,
+    '${credits}': String(app.credits || 0),
+    '${finalReason}': finalReason,
+    '${applyTime}': applyTime,
+    '${managerName}': managerName || '开发经理',
+  };
+
+  let to = template.recipient_email || '';
+  let cc = template.cc_email || '';
   let subject = template.subject || '';
   let body = template.body_template || '';
 
-  const variables: Record<string, string> = {
-    '${applicantName}': app.applicant_name || '',
-    '${applicantEmail}': app.applicant_email || '',
-    '${projectName}': app.project_name || '',
-    '${credits}': String(app.credits || 0),
-    '${finalReason}': app.final_reason || '',
-    '${applyTime}': applyTime,
-    '${managerName}': managerName || '',
-  };
-
   for (const [key, value] of Object.entries(variables)) {
+    to = to.split(key).join(value);
+    cc = cc.split(key).join(value);
     subject = subject.split(key).join(value);
     body = body.split(key).join(value);
   }
 
-  // CRLF for Outlook
-  body = body.replace(/\n/g, '\r\n');
+  // Windows Classic Outlook 2108 requires CRLF (%0D%0A) for line breaks
+  const formattedBody = body.replace(/\r?\n/g, '\r\n');
 
-  const mailtoLink = `mailto:${encodeURIComponent(template.recipient_email)}?cc=${encodeURIComponent(template.cc_email)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  const params: string[] = [];
+  if (cc) params.push(`cc=${encodeURIComponent(cc)}`);
+  if (subject) params.push(`subject=${encodeURIComponent(subject)}`);
+  if (formattedBody) params.push(`body=${encodeURIComponent(formattedBody)}`);
+
+  const mailtoUrl = `mailto:${encodeURIComponent(to)}${params.length > 0 ? '?' + params.join('&') : ''}`;
+
+  return {
+    to,
+    cc,
+    subject,
+    body,
+    mailtoUrl,
+  };
+}
+
+export function launchOutlookDraft(template: MailTemplateData, app: ApplicationData, managerName: string): string {
+  const { mailtoUrl } = buildMailContent(template, app, managerName);
 
   const a = document.createElement('a');
-  a.href = mailtoLink;
+  a.href = mailtoUrl;
   a.style.display = 'none';
   document.body.appendChild(a);
   a.click();
-  document.body.removeChild(a);
+  setTimeout(() => {
+    if (document.body.contains(a)) {
+      document.body.removeChild(a);
+    }
+  }, 1000);
+
+  return mailtoUrl;
 }

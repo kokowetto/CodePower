@@ -5,4 +5,4 @@ pages_build_output_dir = "dist"
 [[d1_databases]]
 binding = "DB"
 database_name = "codepower-db"
-database_id = ""
+database_id = "32ea4c2e-f7a1-4c5b-a135-044bf4532158"

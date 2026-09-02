@@ -16,7 +16,7 @@ export const onRequestPost: PagesFunction<Env, string, { user?: JwtPayload }> = 
       return error('Invalid dictionary IDs');
     }
 
-    const finalReason = extraNotes ? `${reason.reason_text} - ${extraNotes}` : reason.reason_text;
+    const finalReason = extraNotes ? `${reason.reason_text}（${extraNotes}）` : reason.reason_text;
 
     await env.DB.prepare(`
       INSERT INTO applications (user_id, applicant_name, applicant_email, project_name, credits, selected_reason, extra_notes, final_reason)

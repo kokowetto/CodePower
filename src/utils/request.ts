@@ -46,3 +46,5 @@ export const post = <T = any>(url: string, data?: unknown) => request<T>(url, { 
 export const put = <T = any>(url: string, data?: unknown) => request<T>(url, { method: 'PUT', data });
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const patch = <T = any>(url: string, data?: unknown) => request<T>(url, { method: 'PATCH', data });
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const del = <T = any>(url: string) => request<T>(url, { method: 'DELETE' });

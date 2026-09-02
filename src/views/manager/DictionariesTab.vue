@@ -22,11 +22,15 @@
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{{ currentType === 'credit-options' ? '数值' : '名称' }}</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">排序</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
+          <tr v-if="list.length === 0">
+            <td colspan="4" class="px-6 py-4 text-center text-sm text-gray-500">暂无数据</td>
+          </tr>
           <tr v-for="(item, index) in list" :key="item.id" class="hover:bg-gray-50">
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ item.name || item.amount }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ getItemDisplay(item) }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 flex items-center gap-2">
               <button @click="moveUp(index)" :disabled="index === 0" class="text-gray-400 hover:text-blue-600 disabled:opacity-30">↑</button>
               <button @click="moveDown(index)" :disabled="index === list.length - 1" class="text-gray-400 hover:text-blue-600 disabled:opacity-30">↓</button>
@@ -36,6 +40,9 @@
                 <input type="checkbox" :checked="item.isActive || item.is_active === 1" @change="toggleStatus(item)" class="sr-only peer">
                 <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
               </label>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+              <button @click="handleDelete(item)" class="text-red-600 hover:text-red-900">删除</button>
             </td>
           </tr>
         </tbody>
@@ -61,7 +68,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { get, post, patch } from '../../utils/request'
+import { get, post, patch, del } from '../../utils/request'
 import Modal from '../../components/Modal.vue'
 
 const types = [
@@ -165,6 +172,22 @@ const submitAdd = async () => {
     addError.value = err.message || '添加失败'
   } finally {
     isAdding.value = false
+  }
+}
+
+const getItemDisplay = (item: any) => {
+  return item.name || item.amount || item.reason_text || item.reasonText || ''
+}
+
+const handleDelete = async (item: any) => {
+  const display = getItemDisplay(item)
+  if (!confirm(`确定要删除“${display}”吗？删除后不可恢复。`)) return
+
+  try {
+    await del(`/manager/dictionaries/${currentType.value}/${item.id}`)
+    fetchData()
+  } catch (err: any) {
+    alert('删除失败: ' + err.message)
   }
 }
 </script>

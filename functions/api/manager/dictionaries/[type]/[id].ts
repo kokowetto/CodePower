@@ -37,3 +37,18 @@ export const onRequestPatch: PagesFunction<Env> = async (context) => {
     return error(e.message, 500, 500);
   }
 }
+
+export const onRequestDelete: PagesFunction<Env> = async (context) => {
+  const { env, params } = context;
+  try {
+    const type = params.type as string;
+    const id = params.id as string;
+    const tableName = getTableName(type);
+    if (!tableName) return error('Invalid dictionary type');
+
+    await env.DB.prepare(`DELETE FROM ${tableName} WHERE id = ?`).bind(id).run();
+    return success();
+  } catch (e: any) {
+    return error(e.message, 500, 500);
+  }
+}

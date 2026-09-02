@@ -22,7 +22,7 @@
             <div class="md:col-span-2">
               <label class="block text-sm font-medium text-gray-700">用途和申请理由</label>
               <select v-model="form.reasonId" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border">
-                <option v-for="opt in dictionaries.reasons" :key="opt.id" :value="opt.id">{{ opt.name }}</option>
+                <option v-for="opt in dictionaries.reasons" :key="opt.id" :value="opt.id">{{ opt.reason_text || opt.name }}</option>
               </select>
             </div>
             <div class="md:col-span-2">

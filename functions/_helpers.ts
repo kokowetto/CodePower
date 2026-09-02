@@ -56,6 +56,7 @@ function base64UrlDecode(str: string): Uint8Array {
 }
 
 export async function signJwt(payload: object, secret: string): Promise<string> {
+  const actualSecret = secret || 'codepower-default-secret-key-2026';
   const header = { alg: 'HS256', typ: 'JWT' };
   const encoder = new TextEncoder();
   const headerEncoded = encoder.encode(JSON.stringify(header));
@@ -66,7 +67,7 @@ export async function signJwt(payload: object, secret: string): Promise<string> 
 
   const key = await crypto.subtle.importKey(
     'raw',
-    encoder.encode(secret),
+    encoder.encode(actualSecret),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign']
@@ -79,6 +80,7 @@ export async function signJwt(payload: object, secret: string): Promise<string> 
 }
 
 export async function verifyJwt(token: string, secret: string): Promise<JwtPayload | null> {
+  const actualSecret = secret || 'codepower-default-secret-key-2026';
   const parts = token.split('.');
   if (parts.length !== 3) return null;
   const [headerB64, payloadB64, signatureB64] = parts;
@@ -89,7 +91,7 @@ export async function verifyJwt(token: string, secret: string): Promise<JwtPaylo
 
   const key = await crypto.subtle.importKey(
     'raw',
-    encoder.encode(secret),
+    encoder.encode(actualSecret),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['verify']

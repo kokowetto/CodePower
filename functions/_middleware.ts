@@ -5,8 +5,18 @@ export async function onRequest(context: EventContext<Env, string, { user?: JwtP
   const url = new URL(request.url);
   const path = url.pathname;
 
+  // Only intercept /api/ requests; allow frontend static assets (HTML/CSS/JS) to pass through
+  if (!path.startsWith('/api/')) {
+    return next();
+  }
+
   // Skip validation for auth and public
   if (path.startsWith('/api/auth/') || path.startsWith('/api/public/')) {
+    return next();
+  }
+
+  // Allow OPTIONS preflight requests
+  if (request.method === 'OPTIONS') {
     return next();
   }
 

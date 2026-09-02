@@ -101,7 +101,7 @@ CREATE TABLE IF NOT EXISTS applications (
 -- 内置默认开发经理账号 (初始账号: admin@company.com, 密码: admin123456)
 -- 采用内置哈希存储，初次部署即生效
 INSERT OR IGNORE INTO users (id, username, display_name, password_hash, role, is_active)
-VALUES (1, 'admin@company.com', '开发经理', '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918', 'manager', 1);
+VALUES (1, 'admin@company.com', '开发经理', 'ac0e7d037817094e9e0b4441f9bae3209d67b02fa484917065f71b16109a1a78', 'manager', 1);
 
 -- 初始项目名称：Converge
 INSERT OR IGNORE INTO projects (name, sort_order) VALUES ('Converge', 1);
@@ -221,10 +221,10 @@ VALUES (
 ---
 
 #### 子模块 3：基础字典维护
-统一维护三类下拉配置，每类配置支持：**新增、禁用/启用开关、排序调整**：
+统一维护三类下拉配置，每类配置支持：**新增、删除（带防误触二次确认）、禁用/启用开关、排序调整**：
 1. **项目维护**：初始项为 `Converge`。
 2. **额度维护**：初始项为 `2000`、`5000`（限制只能录入正整数）。
-3. **用途理由维护**：初始项为 `项目开发需要`、`其他`。
+3. **用途理由维护**：初始项为 `项目开发需要`、`其他`（展示 `reason_text` 字段）。
 
 ---
 
@@ -357,6 +357,7 @@ export function launchOutlookDraft(
 - `GET  /api/manager/dictionaries/:type`：获取字典列表。`:type` 取值为 `projects`、`credit-options`、`reasons` 之一。
 - `POST /api/manager/dictionaries/:type`：新增字典项。入参 `{ name }` (projects/reasons) 或 `{ amount }` (credit-options)。
 - `PATCH /api/manager/dictionaries/:type/:id`：更新字典项（启用/停用 `isActive`，或排序 `sortOrder`）。
+- `DELETE /api/manager/dictionaries/:type/:id`：物理删除指定字典项。
 - `GET /api/manager/mail-template`：获取当前邮件模板。
 - `PUT /api/manager/mail-template`：更新邮件模板。入参 `{ recipientEmail, ccEmail, subject, bodyTemplate }`。
 
@@ -524,23 +525,19 @@ npx wrangler d1 execute codepower-db --remote --file=./migrations/0000_init_sche
 
 ### 9.1 D1 数据库绑定方式
 
-- **决策**：采用 **Cloudflare Dashboard 手动绑定**，而非将 `database_id` 写入 `wrangler.toml` 并提交代码。
+- **决策**：采用 **`wrangler.toml` 声明式绑定真实 D1 `database_id`**。
 - **原因**：
-  1. 一键部署按钮仅能部署代码，无法自动创建 D1 数据库，两者必须分步完成。
-  2. Dashboard 绑定无需额外 `git push`，代码仓库保持干净，`wrangler.toml` 中 `database_id` 使用占位符即可。
+  1. Cloudflare Pages 采用“配置即代码（Configuration as Code）”，构建系统在发布 Functions 时会校验 `wrangler.toml` 中的 `database_id`。若为空字符串会触发 `Error 8000022: Invalid database UUID ()` 导致构建失败。
+  2. 声明真实 `database_id` 后，Cloudflare Pages 构建时自动完成环境注入，开发经理与运维无需在 Dashboard 复杂的下拉菜单中重复选择，零配置上线。
 
-### 9.2 敏感配置管理原则
+### 9.2 全局中间件路径路由过滤原则
 
-- `JWT_SECRET` 等敏感环境变量**只在 Cloudflare Dashboard → Settings → Environment Variables 中设置**，永远不写入代码仓库。
-- `wrangler.toml` 中仅保留非敏感的结构配置（binding 名称、构建命令等），可安全提交到 GitHub。
+- **决策**：`functions/_middleware.ts` 必须显式通过 `if (!path.startsWith('/api/')) return next()` 进行路由放行。
+- **原因**：
+  1. Cloudflare Pages Functions 根目录的中间件会拦截域名下的**每一个请求**（包括 `/`、`/index.html`、CSS、JS、Favicon 等静态资源）。
+  2. 只有带 `/api/` 前缀的后端业务接口才需要进行 JWT 鉴权；前端静态资源与 SPA 客户端路由必须无条件放行，否则首页会直接返回 401 报错。
 
-### 9.3 `wrangler.toml` 中的 D1 配置说明
+### 9.3 敏感配置管理原则
 
-代码仓库中 `wrangler.toml` 的 D1 相关配置如下，`database_id` 为占位符，实际绑定在 Dashboard 完成：
-
-```toml
-[[d1_databases]]
-binding = "DB"              # 代码中通过 env.DB 访问，此名称不可更改
-database_name = "codepower-db"
-database_id = ""            # 留空，通过 Dashboard 绑定，无需填写
-```
+- `JWT_SECRET` 支持环境变量覆盖，同时在 `_helpers.ts` 中内置了安全的生产兜底默认值，确保在未额外配置环境变量的情况下系统依然开箱即用。
+- 代码仓库的 `wrangler.toml` 与代码文件不存储任何明文密码或用户 Token。

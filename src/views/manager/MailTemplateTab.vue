@@ -72,15 +72,16 @@ const variables = [
   { name: '${applicantName}', desc: '申请人姓名', mock: '张三' },
   { name: '${applicantEmail}', desc: '申请人邮箱', mock: 'zhangsan@corp.com' },
   { name: '${projectName}', desc: '项目名称', mock: 'CodePower' },
-  { name: '${credits}', desc: '申请额度', mock: '100' },
+  { name: '${credits}', desc: '申请额度', mock: '2000' },
   { name: '${finalReason}', desc: '申请理由', mock: '日常开发使用' },
-  { name: '${applyTime}', desc: '申请时间', mock: '2023-10-01 12:00:00' },
-  { name: '${managerName}', desc: '审批经理', mock: '李经理' },
+  { name: '${applyTime}', desc: '申请时间', mock: '2026-09-02 08:49:23' },
+  { name: '${endTime}', desc: '结束时间(默认当月最后一天)', mock: '2026-09-30' },
+  { name: '${managerName}', desc: '审批经理', mock: '开发经理' },
 ]
 
 const replaceVars = (text: string) => {
   if (!text) return ''
-  let res = text
+  let res = text.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n')
   variables.forEach(v => {
     res = res.split(v.name).join(v.mock)
   })
@@ -96,7 +97,8 @@ const fetchData = async () => {
     form.value.recipientEmail = data.recipient_email || data.recipientEmail || ''
     form.value.ccEmail = data.cc_email || data.ccEmail || ''
     form.value.subject = data.subject || ''
-    form.value.bodyTemplate = data.body_template || data.bodyTemplate || ''
+    const rawBody = data.body_template || data.bodyTemplate || ''
+    form.value.bodyTemplate = rawBody.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n')
   } catch (e) {
     console.error(e)
   }

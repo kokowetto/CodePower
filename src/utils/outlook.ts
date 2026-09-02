@@ -24,7 +24,18 @@ export function buildMailContent(template: MailTemplateData, app: ApplicationDat
   const applicantEmail = app.applicant_email || app.applicantEmail || '';
   const projectName = app.project_name || app.projectName || '';
   const finalReason = app.final_reason || app.finalReason || '';
-  const applyTime = new Date(app.created_at || app.createdAt || '').toLocaleString('zh-CN', { hour12: false });
+  let d = new Date(app.created_at || app.createdAt || '');
+  if (isNaN(d.getTime())) {
+    d = new Date();
+  }
+  const applyTime = d.toLocaleString('zh-CN', { hour12: false });
+
+  // 结束时间默认申请月份最后一天，格式 YYYY-MM-DD
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  const endYear = lastDay.getFullYear();
+  const endMonth = String(lastDay.getMonth() + 1).padStart(2, '0');
+  const endDay = String(lastDay.getDate()).padStart(2, '0');
+  const endTime = `${endYear}-${endMonth}-${endDay}`;
 
   const variables: Record<string, string> = {
     '${applicantName}': applicantName,
@@ -33,6 +44,8 @@ export function buildMailContent(template: MailTemplateData, app: ApplicationDat
     '${credits}': String(app.credits || 0),
     '${finalReason}': finalReason,
     '${applyTime}': applyTime,
+    '${endTime}': endTime,
+    '${endDate}': endTime,
     '${managerName}': managerName || '开发经理',
   };
 
@@ -48,8 +61,11 @@ export function buildMailContent(template: MailTemplateData, app: ApplicationDat
     body = body.split(key).join(value);
   }
 
-  // Windows Classic Outlook 2108 requires CRLF (%0D%0A) for line breaks
-  const formattedBody = body.replace(/\r?\n/g, '\r\n');
+  // 先把字面量的 "\n"、"\r\n" 还原为标准换行，避免数据库或转义导致明文展示 "\n"
+  const normalizedBody = body.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n');
+
+  // Windows 经典版 Outlook 2108 需要 CRLF 格式换行，URL 编码后为 %0D%0A
+  const formattedBody = normalizedBody.replace(/\r?\n/g, '\r\n');
 
   const params: string[] = [];
   if (cc) params.push(`cc=${encodeURIComponent(cc)}`);

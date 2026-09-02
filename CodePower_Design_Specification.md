@@ -120,7 +120,7 @@ VALUES (
     'leader@company.com',
     '${applicantEmail}',
     '【Copilot额度申请审批】${applicantName} - ${projectName} (${credits} credits)',
-    '尊敬的领导：\n\n开发团队已初审通过员工【${applicantName}】的 GitHub Copilot 额度申领，具体详情如下：\n----------------------------------------\n- 申请人员：${applicantName} (${applicantEmail})\n- 所属项目：${projectName}\n- 申请额度：${credits} credits\n- 用途及理由：${finalReason}\n- 申请时间：${applyTime}\n- 审批结果：开发经理已同意\n----------------------------------------\n\n请您查阅并进行最终划拨处理。\n\n此致\n开发团队'
+    '尊敬的领导：\n\n开发团队已初审通过员工【${applicantName}】的 GitHub Copilot 额度申领，具体详情如下：\n----------------------------------------\n- 申请人员：${applicantName} (${applicantEmail})\n- 所属项目：${projectName}\n- 申请额度：${credits} credits\n- 用途及理由：${finalReason}\n- 申请时间：${applyTime}\n- 结束时间：${endTime}\n- 审批结果：开发经理已同意\n----------------------------------------\n\n请您查阅并进行最终划拨处理。\n\n此致\n开发团队'
 );
 ```
 
@@ -241,6 +241,7 @@ VALUES (
     - `${credits}`：申请额度数值
     - `${finalReason}`：用途及理由（已合并补充说明）
     - `${applyTime}`：申请提交时间（格式：YYYY-MM-DD HH:mm）
+    - `${endTime}`：额度结束时间（默认申请月份最后一天，格式：YYYY-MM-DD）
     - `${managerName}`：审批经理姓名
 - **实时预览卡片**：右侧展示将虚拟变量替换后的实际邮件排版渲染效果。
 - **保存按钮**：持久化到 D1 数据库。

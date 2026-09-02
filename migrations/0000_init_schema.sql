@@ -82,5 +82,21 @@ VALUES (
     'leader@company.com',
     '${applicantEmail}',
     '【Copilot额度申请审批】${applicantName} - ${projectName} (${credits} credits)',
-    '尊敬的领导：\n\n开发团队已初审通过员工【${applicantName}】的 GitHub Copilot 额度申领，具体详情如下：\n----------------------------------------\n- 申请人员：${applicantName} (${applicantEmail})\n- 所属项目：${projectName}\n- 申请额度：${credits} credits\n- 用途及理由：${finalReason}\n- 申请时间：${applyTime}\n- 审批结果：开发经理已同意\n----------------------------------------\n\n请您查阅并进行最终划拨处理。\n\n此致\n开发团队'
+    '尊敬的领导：
+
+开发团队已初审通过员工【${applicantName}】的 GitHub Copilot 额度申领，具体详情如下：
+----------------------------------------
+- 申请人员：${applicantName} (${applicantEmail})
+- 所属项目：${projectName}
+- 申请额度：${credits} credits
+- 用途及理由：${finalReason}
+- 申请时间：${applyTime}
+- 结束时间：${endTime}
+- 审批结果：开发经理已同意
+----------------------------------------
+
+请您查阅并进行最终划拨处理。
+
+此致
+开发团队'
 );

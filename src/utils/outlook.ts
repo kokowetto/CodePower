@@ -13,6 +13,10 @@ export interface ApplicationData {
   applicantEmail?: string;
   projectName?: string;
   credits: number;
+  user_limit?: number;
+  userLimit?: number;
+  used_credits?: number;
+  usedCredits?: number;
   final_reason?: string;
   finalReason?: string;
   created_at?: string;
@@ -24,6 +28,13 @@ export function buildMailContent(template: MailTemplateData, app: ApplicationDat
   const applicantEmail = app.applicant_email || app.applicantEmail || '';
   const projectName = app.project_name || app.projectName || '';
   const finalReason = app.final_reason || app.finalReason || '';
+  const userLimit = app.user_limit !== undefined && app.user_limit !== null
+    ? String(app.user_limit)
+    : (app.userLimit !== undefined && app.userLimit !== null ? String(app.userLimit) : '0');
+  const usedCredits = app.used_credits !== undefined && app.used_credits !== null
+    ? String(app.used_credits)
+    : (app.usedCredits !== undefined && app.usedCredits !== null ? String(app.usedCredits) : '0');
+
   let d = new Date(app.created_at || app.createdAt || '');
   if (isNaN(d.getTime())) {
     d = new Date();
@@ -42,6 +53,10 @@ export function buildMailContent(template: MailTemplateData, app: ApplicationDat
     applicantEmail,
     projectName,
     credits: String(app.credits || 0),
+    userLimit,
+    personalLimit: userLimit,
+    usedCredits,
+    creditsUsed: usedCredits,
     finalReason,
     applyTime,
     endTime,

@@ -73,6 +73,8 @@ const variables = [
   { name: '${applicantEmail}', desc: '申请人邮箱', mock: 'zhangsan@corp.com' },
   { name: '${projectName}', desc: '项目名称', mock: 'CodePower' },
   { name: '${credits}', desc: '申请额度', mock: '2000' },
+  { name: '${userLimit}', desc: '当前个人上限', mock: '2000' },
+  { name: '${usedCredits}', desc: '已使用量', mock: '1850' },
   { name: '${finalReason}', desc: '申请理由', mock: '日常开发使用' },
   { name: '${applyTime}', desc: '申请时间', mock: '2026-09-02 08:49:23' },
   { name: '${endTime}', desc: '结束时间(默认当月最后一天)', mock: '2026-09-30' },
@@ -83,7 +85,9 @@ const replaceVars = (text: string) => {
   if (!text) return ''
   let res = text.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n')
   variables.forEach(v => {
-    res = res.split(v.name).join(v.mock)
+    const rawName = v.name.replace('${', '').replace('}', '')
+    const reg = new RegExp(`\\$\\{\\s*${rawName}\\s*\\}`, 'gi')
+    res = res.replace(reg, v.mock)
   })
   return res
 }

@@ -56,6 +56,8 @@ CREATE TABLE IF NOT EXISTS applications (
     applicant_email TEXT NOT NULL,
     project_name TEXT NOT NULL,
     credits INTEGER NOT NULL,
+    user_limit INTEGER NOT NULL DEFAULT 0,
+    used_credits INTEGER NOT NULL DEFAULT 0,
     selected_reason TEXT NOT NULL,
     extra_notes TEXT DEFAULT '',
     final_reason TEXT NOT NULL,
@@ -89,6 +91,8 @@ VALUES (
 - 申请人员：${applicantName} (${applicantEmail})
 - 所属项目：${projectName}
 - 申请额度：${credits} credits
+- 当前个人上限：${userLimit} credits
+- 已使用量：${usedCredits} credits
 - 用途及理由：${finalReason}
 - 申请时间：${applyTime}
 - 结束时间：${endTime}

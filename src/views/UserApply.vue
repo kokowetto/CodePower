@@ -19,6 +19,14 @@
                 <option v-for="opt in dictionaries.creditOptions" :key="opt.id" :value="opt.id">{{ opt.amount }} credits</option>
               </select>
             </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700">当前个人上限 (credits)</label>
+              <input type="number" v-model.number="form.userLimit" required min="0" max="50000" placeholder="0 - 50000 整数" class="mt-1 block w-full px-3 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700">已使用量 (credits)</label>
+              <input type="number" v-model.number="form.usedCredits" required min="0" max="50000" placeholder="0 - 50000 整数" class="mt-1 block w-full px-3 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border">
+            </div>
             <div class="md:col-span-2">
               <label class="block text-sm font-medium text-gray-700">用途和申请理由</label>
               <select v-model="form.reasonId" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border">
@@ -55,6 +63,7 @@
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">项目名称</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">申请额度</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">上限 / 已用</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用途及理由</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">申请时间</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
@@ -62,12 +71,13 @@
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
               <tr v-if="applications.length === 0">
-                <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">暂无数据</td>
+                <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">暂无数据</td>
               </tr>
               <tr v-for="app in applications" :key="app.id" class="hover:bg-gray-50">
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">#{{ app.id }}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ app.project_name || app.projectName }}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ app.credits }} credits</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">{{ app.credits }} credits</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ app.user_limit ?? 0 }} / {{ app.used_credits ?? 0 }}</td>
                 <td class="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">{{ app.final_reason || app.finalReason }}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ formatDate(app.created_at || app.createdAt) }}</td>
                 <td class="px-6 py-4 whitespace-nowrap">
@@ -99,7 +109,9 @@ const form = ref({
   projectId: null,
   creditId: null,
   reasonId: null,
-  extraNotes: ''
+  extraNotes: '',
+  userLimit: null as number | null,
+  usedCredits: null as number | null
 })
 
 const applications = ref<any[]>([])
@@ -134,6 +146,8 @@ const submitApplication = async () => {
     await post('/applications/submit', form.value)
     submitSuccess.value = true
     form.value.extraNotes = ''
+    form.value.userLimit = null
+    form.value.usedCredits = null
     setTimeout(() => submitSuccess.value = false, 3000)
     // Refresh history
     const apps = await get('/applications/my')

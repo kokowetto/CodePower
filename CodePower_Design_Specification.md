@@ -86,6 +86,8 @@ CREATE TABLE IF NOT EXISTS applications (
     applicant_email TEXT NOT NULL,       -- 申请人域账号（历史快照）
     project_name TEXT NOT NULL,          -- 所选项目（历史快照）
     credits INTEGER NOT NULL,            -- 申请额度（历史快照）
+    user_limit INTEGER NOT NULL DEFAULT 0, -- 当前个人上限（历史快照，0~50000）
+    used_credits INTEGER NOT NULL DEFAULT 0, -- 已使用量（历史快照，0~50000）
     selected_reason TEXT NOT NULL,       -- 下拉选中的基础理由
     extra_notes TEXT DEFAULT '',         -- 用户手填补充理由（最多 50 个 Unicode 字符）
     final_reason TEXT NOT NULL,          -- 合并后的最终申请理由
@@ -120,7 +122,7 @@ VALUES (
     'leader@company.com',
     '${applicantEmail}',
     '【Copilot额度申请审批】${applicantName} - ${projectName} (${credits} credits)',
-    '尊敬的领导：\n\n开发团队已初审通过员工【${applicantName}】的 GitHub Copilot 额度申领，具体详情如下：\n----------------------------------------\n- 申请人员：${applicantName} (${applicantEmail})\n- 所属项目：${projectName}\n- 申请额度：${credits} credits\n- 用途及理由：${finalReason}\n- 申请时间：${applyTime}\n- 结束时间：${endTime}\n- 审批结果：开发经理已同意\n----------------------------------------\n\n请您查阅并进行最终划拨处理。\n\n此致\n开发团队'
+    '尊敬的领导：\n\n开发团队已初审通过员工【${applicantName}】的 GitHub Copilot 额度申领，具体详情如下：\n----------------------------------------\n- 申请人员：${applicantName} (${applicantEmail})\n- 所属项目：${projectName}\n- 申请额度：${credits} credits\n- 当前个人上限：${userLimit} credits\n- 已使用量：${usedCredits} credits\n- 用途及理由：${finalReason}\n- 申请时间：${applyTime}\n- 结束时间：${endTime}\n- 审批结果：开发经理已同意\n----------------------------------------\n\n请您查阅并进行最终划拨处理。\n\n此致\n开发团队'
 );
 ```
 
@@ -152,20 +154,22 @@ VALUES (
 #### 申请表单交互细节
 1. **项目名称**：下拉单选，默认自动选中第 1 项（取自字典启用项，初值为 `Converge`）。
 2. **申请额度**：下拉单选，默认自动选中第 1 项（取自字典启用项，初值为 `2000`）。
-3. **用途和申请理由**：下拉单选，默认自动选中第 1 项（取自字典启用项，初值为 `项目开发需要`）。
-4. **补充说明（其他信息）**：
+3. **当前个人上限**：整数输入框，必填，限制 `0 ~ 50000` 范围。
+4. **已使用量**：整数输入框，必填，限制 `0 ~ 50000` 范围。
+5. **用途和申请理由**：下拉单选，默认自动选中第 1 项（取自字典启用项，初值为 `项目开发需要`）。
+6. **补充说明（其他信息）**：
    - 文本输入框，**非必填**。
    - 右下角展示字数计数器，**限制最多 50 个 Unicode 字符**，超过禁止输入。
-5. **提交与字段合并规则**：
-   - 用户点击【提交申请】按钮，前端向后端提交字典项 ID：`{ projectId, creditId, reasonId, extraNotes }`。
-   - **后端处理逻辑**：根据 `reasonId` 查字典表获得 `reason_text`，再按以下策略合并后存库：
+7. **提交与字段合并规则**：
+   - 用户点击【提交申请】按钮，前端向后端提交字段：`{ projectId, creditId, userLimit, usedCredits, reasonId, extraNotes }`。
+   - **后端处理逻辑**：根据 `reasonId` 查字典表获得 `reason_text`，校验数值合法性后存入 `applications` 表：
    - **理由合并存储策略**：
      - 若 `extraNotes` 为空：`final_reason = reason_text`。
      - 若 `extraNotes` 有内容：`final_reason = "${reason_text}（${extraNotes}）"`。
      - 示例：选择"项目开发需要"，补充"主模块重构"，最终存储为：`项目开发需要（主模块重构）`。
 
 #### 我的申请记录列表
-- 字段：申请单 ID、项目名称、申请额度、用途及理由、申请时间、审批状态。
+- 字段：申请单 ID、项目名称、申请额度、上限/已用、用途及理由、申请时间、审批状态。
 - 状态展示规则（彩色 Badge 标签）：
   - `pending`：黄色标签，“待审批”。
   - `approved`：绿色标签，“已通过”。
@@ -187,7 +191,7 @@ VALUES (
 #### 子模块 1：审批中心
 - **数据范围**：展示全集团所有成员提交的申请单。
 - **列表筛选项**：全部、待审批（默认）、已通过、已拒绝。
-- **列表字段**：申请人姓名、域账号、项目名称、额度、合并后的用途理由、申请时间、状态、操作。
+- **列表字段**：申请人姓名、域账号、项目名称、额度（含个人上限与已使用量展示）、合并后的用途理由、申请时间、状态、操作。
 - **操作逻辑**：
   1. **【同意】操作**：
      - 弹出确认提示框："确认同意该申请并生成 Outlook 邮件？"
@@ -239,6 +243,8 @@ VALUES (
     - `${applicantEmail}`：申请人域账号邮箱
     - `${projectName}`：项目名称
     - `${credits}`：申请额度数值
+    - `${userLimit}`：当前个人上限数值
+    - `${usedCredits}`：已使用量数值
     - `${finalReason}`：用途及理由（已合并补充说明）
     - `${applyTime}`：申请提交时间（格式：YYYY-MM-DD HH:mm）
     - `${endTime}`：额度结束时间（默认申请月份最后一天，格式：YYYY-MM-DD）
@@ -345,7 +351,7 @@ export function launchOutlookDraft(
 - `GET /api/public/dictionaries`：普通用户获取表单下拉字典（获取所有启用状态的 projects, credit_options, reasons）。
 
 ### 6.2 普通用户业务
-- `POST /api/applications/submit`：提交额度申请。入参 `{ projectId, creditId, reasonId, extraNotes }`。
+- `POST /api/applications/submit`：提交额度申请。入参 `{ projectId, creditId, userLimit, usedCredits, reasonId, extraNotes }`。
 - `GET /api/applications/my`：获取当前登录用户的申请记录列表。
 
 ### 6.3 开发经理管理业务 (需校验 Manager 角色)

@@ -94,6 +94,7 @@
 import { ref, onMounted } from 'vue'
 import { get, post } from '../../utils/request'
 import { launchOutlookDraft, buildMailContent, MailTemplateData } from '../../utils/outlook'
+import { formatEast8DateTime } from '../../utils/date'
 import Modal from '../../components/Modal.vue'
 
 const statusOptions = [
@@ -203,7 +204,6 @@ const copySuccessMail = () => {
 }
 
 const formatDate = (dateStr: string) => {
-  if (!dateStr) return ''
-  return new Date(dateStr).toLocaleString('zh-CN', { hour12: false })
+  return formatEast8DateTime(dateStr)
 }
 </script>

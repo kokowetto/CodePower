@@ -1,3 +1,5 @@
+import { formatEast8DateTime, getEast8MonthEnd } from './date';
+
 export interface MailTemplateData {
   recipient_email: string;
   cc_email: string;
@@ -35,18 +37,8 @@ export function buildMailContent(template: MailTemplateData, app: ApplicationDat
     ? String(app.used_credits)
     : (app.usedCredits !== undefined && app.usedCredits !== null ? String(app.usedCredits) : '0');
 
-  let d = new Date(app.created_at || app.createdAt || '');
-  if (isNaN(d.getTime())) {
-    d = new Date();
-  }
-  const applyTime = d.toLocaleString('zh-CN', { hour12: false });
-
-  // 结束时间默认申请月份最后一天，格式 YYYY-MM-DD
-  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-  const endYear = lastDay.getFullYear();
-  const endMonth = String(lastDay.getMonth() + 1).padStart(2, '0');
-  const endDay = String(lastDay.getDate()).padStart(2, '0');
-  const endTime = `${endYear}-${endMonth}-${endDay}`;
+  const applyTime = formatEast8DateTime(app.created_at || app.createdAt);
+  const endTime = getEast8MonthEnd(app.created_at || app.createdAt);
 
   const variables: Record<string, string> = {
     applicantName,

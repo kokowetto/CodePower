@@ -60,6 +60,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { get, post } from '../../utils/request'
+import { formatEast8DateTime } from '../../utils/date'
 import Modal from '../../components/Modal.vue'
 
 const users = ref<any[]>([])
@@ -133,7 +134,6 @@ const submitAddUser = async () => {
 }
 
 const formatDate = (dateStr: string) => {
-  if (!dateStr) return ''
-  return new Date(dateStr).toLocaleString('zh-CN', { hour12: false })
+  return formatEast8DateTime(dateStr)
 }
 </script>

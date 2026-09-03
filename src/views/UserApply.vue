@@ -98,6 +98,7 @@
 import { ref, onMounted } from 'vue'
 import Navbar from '../components/Navbar.vue'
 import { get, post } from '../utils/request'
+import { formatEast8DateTime } from '../utils/date'
 
 const dictionaries = ref({
   projects: [] as any[],
@@ -160,7 +161,6 @@ const submitApplication = async () => {
 }
 
 const formatDate = (dateStr: string) => {
-  if (!dateStr) return ''
-  return new Date(dateStr).toLocaleString('zh-CN', { hour12: false })
+  return formatEast8DateTime(dateStr)
 }
 </script>

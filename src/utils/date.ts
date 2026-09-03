@@ -20,6 +20,28 @@ export function parseUtcDate(dateStr: string | Date | undefined | null): Date {
 }
 
 /**
+ * 格式化为东八区纯日期格式：YYYY-MM-DD（仅日期，不含时间）
+ */
+export function formatEast8Date(dateStr: string | Date | undefined | null): string {
+  if (!dateStr) return '';
+  const d = parseUtcDate(dateStr);
+
+  const formatter = new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+
+  const parts = formatter.formatToParts(d);
+  const year = parts.find(p => p.type === 'year')?.value;
+  const month = parts.find(p => p.type === 'month')?.value;
+  const day = parts.find(p => p.type === 'day')?.value;
+
+  return `${year}-${month}-${day}`;
+}
+
+/**
  * 格式化为东八区标准时间格式：YYYY-MM-DD HH:mm:ss
  */
 export function formatEast8DateTime(dateStr: string | Date | undefined | null): string {

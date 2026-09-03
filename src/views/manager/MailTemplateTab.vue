@@ -76,8 +76,9 @@ const variables = [
   { name: '${userLimit}', desc: '当前个人上限', mock: '2000' },
   { name: '${usedCredits}', desc: '已使用量', mock: '1850' },
   { name: '${finalReason}', desc: '申请理由', mock: '日常开发使用' },
-  { name: '${applyTime}', desc: '申请时间', mock: '2026-09-02 17:08:22' },
-  { name: '${endTime}', desc: '结束时间(默认当月最后一天)', mock: '2026-09-30' },
+  { name: '${applyTime}', desc: '生效日期(仅日期)', mock: '2026-09-02' },
+  { name: '${effectiveDate}', desc: '生效日期(与applyTime等效)', mock: '2026-09-02' },
+  { name: '${endTime}', desc: '截止日期(默认当月最后一天)', mock: '2026-09-30' },
   { name: '${managerName}', desc: '审批经理', mock: '开发经理' },
 ]
 

@@ -1,4 +1,4 @@
-import { formatEast8DateTime, getEast8MonthEnd } from './date';
+import { formatEast8Date, formatEast8DateTime, getEast8MonthEnd } from './date';
 
 export interface MailTemplateData {
   recipient_email: string;
@@ -37,7 +37,9 @@ export function buildMailContent(template: MailTemplateData, app: ApplicationDat
     ? String(app.used_credits)
     : (app.usedCredits !== undefined && app.usedCredits !== null ? String(app.usedCredits) : '0');
 
-  const applyTime = formatEast8DateTime(app.created_at || app.createdAt);
+  // 邮件草稿中的生效日期/申请时间按需求只保留纯日期（YYYY-MM-DD），与截止日期相呼应
+  const applyDate = formatEast8Date(app.created_at || app.createdAt);
+  const applyDateTime = formatEast8DateTime(app.created_at || app.createdAt);
   const endTime = getEast8MonthEnd(app.created_at || app.createdAt);
 
   const variables: Record<string, string> = {
@@ -50,7 +52,11 @@ export function buildMailContent(template: MailTemplateData, app: ApplicationDat
     usedCredits,
     creditsUsed: usedCredits,
     finalReason,
-    applyTime,
+    applyTime: applyDate, // 邮件草稿中仅展示纯日期 YYYY-MM-DD
+    applyDate,
+    effectiveDate: applyDate,
+    startDate: applyDate,
+    applyDateTime, // 备用：如特殊需要完整时分秒
     endTime,
     endDate: endTime,
     managerName: managerName || '开发经理',

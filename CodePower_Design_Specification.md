@@ -246,8 +246,8 @@ VALUES (
     - `${userLimit}`：当前个人上限数值
     - `${usedCredits}`：已使用量数值
     - `${finalReason}`：用途及理由（已合并补充说明）
-    - `${applyTime}`：申请提交时间（格式：YYYY-MM-DD HH:mm）
-    - `${endTime}`：额度结束时间（默认申请月份最后一天，格式：YYYY-MM-DD）
+    - `${applyTime}`：申请提交时间（东八区标准格式：YYYY-MM-DD HH:mm:ss）
+    - `${endTime}`：额度结束时间（基于东八区计算默认申请月份最后一天，格式：YYYY-MM-DD）
     - `${managerName}`：审批经理姓名
 - **实时预览卡片**：右侧展示将虚拟变量替换后的实际邮件排版渲染效果。
 - **保存按钮**：持久化到 D1 数据库。

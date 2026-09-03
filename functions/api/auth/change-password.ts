@@ -1,8 +1,18 @@
-import { Env, success, error, sha256Hex, JwtPayload } from '../../_helpers';
+import { Env, success, error, sha256Hex, verifyJwt, JwtPayload } from '../../_helpers';
 
 export const onRequestPost: PagesFunction<Env, string, { user?: JwtPayload }> = async (context) => {
   const { request, env, data } = context;
-  const user = data.user;
+  let user = data.user;
+
+  // 兜底：如果中间件未注入 user，尝试从请求头直接解析 Bearer Token
+  if (!user) {
+    const authHeader = request.headers.get('Authorization');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      user = (await verifyJwt(token, env.JWT_SECRET)) || undefined;
+    }
+  }
+
   if (!user) return error('Unauthorized', 401, 401);
 
   try {

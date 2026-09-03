@@ -10,8 +10,8 @@ export async function onRequest(context: EventContext<Env, string, { user?: JwtP
     return next();
   }
 
-  // Skip validation for auth and public
-  if (path.startsWith('/api/auth/') || path.startsWith('/api/public/')) {
+  // Skip validation for login and public endpoints
+  if (path === '/api/auth/login' || path.startsWith('/api/public/')) {
     return next();
   }
 

@@ -1,4 +1,5 @@
 import { Env, success, error, JwtPayload } from '../../_helpers';
+import { buildTeamsAdaptiveCard, postToTeams } from '../../_teams';
 
 const DEFAULT_TEAMS_WEBHOOK_URL = 'https://default335a532847a0444489f8552b2e6cae.ea.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/5fe405563c2b4c6b8840811d8d0b2796/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Ao3ZbycC_-iDbr8ri6WbX5ymofIO2u4jcTZkKU7EKx8';
 
@@ -24,26 +25,6 @@ function getNowEast8DateTime(): string {
   return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
 }
 
-async function sendTeamsNotification(webhookUrl: string, payload: any): Promise<void> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
-
-    const res = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-    console.log('Teams webhook status:', res.status);
-  } catch (err) {
-    console.error('Failed to send Teams webhook notification:', err);
-  }
-}
 
 export const onRequestPost: PagesFunction<Env, string, { user?: JwtPayload }> = async (context) => {
   const { request, env, data } = context;
@@ -79,26 +60,25 @@ export const onRequestPost: PagesFunction<Env, string, { user?: JwtPayload }> = 
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(user.id, user.displayName, user.username, project.name, credit.amount, userLimitNum, usedCreditsNum, reason.reason_text, extraNotes || '', finalReason).run();
 
-    // 组装精炼紧凑的 Teams 消息摘要（单行纯文本，杜绝任何换行符或复杂结构导致的卡片解析异常）
-    const shortSummary = `【CodePower申请提醒】员工 ${user.displayName} 提交了 ${project.name} 项目的 ${credit.amount} credits 额度申请（用量/上限: ${usedCreditsNum}/${userLimitNum}，理由: ${finalReason}），请及时审批：https://codepower.pages.dev`;
-
-    const webhookPayload = {
-      summary: shortSummary,
-      text: shortSummary,
-      message: shortSummary,
-      content: shortSummary,
+    // 组装符合微软 Teams 官方协议的 Adaptive Card 1.5 消息体（含 @Sun, Guo Yang 强提醒与审批直达按钮）
+    const webhookPayload = buildTeamsAdaptiveCard({
       applicantName: user.displayName,
+      applicantEmail: user.username,
       projectName: project.name,
       credits: credit.amount,
       userLimit: userLimitNum,
       usedCredits: usedCreditsNum,
       finalReason,
       applyTime,
-    };
+    });
 
     const webhookUrl = env.TEAMS_WEBHOOK_URL || DEFAULT_TEAMS_WEBHOOK_URL;
-    // 直接 await 发送，确保 Cloudflare 节点在完成 HTTP 请求后再响应，带 4 秒超时与异常捕获
-    await sendTeamsNotification(webhookUrl, webhookPayload);
+    // 采用经理标准的可靠传输机制（28KB安全守卫、200/202成功识别、400快速失败、重试退避），异常不阻塞单据创建
+    try {
+      await postToTeams(webhookUrl, webhookPayload, { timeoutMs: 4000, retries: 2 });
+    } catch (notifyErr) {
+      console.error('Failed to notify Teams:', notifyErr);
+    }
 
     return success();
   } catch (e: any) {

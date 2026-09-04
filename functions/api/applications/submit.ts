@@ -27,9 +27,9 @@ function getNowEast8DateTime(): string {
 async function sendTeamsNotification(webhookUrl: string, payload: any): Promise<void> {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
 
-    await fetch(webhookUrl, {
+    const res = await fetch(webhookUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -39,6 +39,7 @@ async function sendTeamsNotification(webhookUrl: string, payload: any): Promise<
     });
 
     clearTimeout(timeoutId);
+    console.log('Teams webhook status:', res.status);
   } catch (err) {
     console.error('Failed to send Teams webhook notification:', err);
   }
@@ -78,28 +79,15 @@ export const onRequestPost: PagesFunction<Env, string, { user?: JwtPayload }> = 
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(user.id, user.displayName, user.username, project.name, credit.amount, userLimitNum, usedCreditsNum, reason.reason_text, extraNotes || '', finalReason).run();
 
-    // 组装清晰详尽的 Teams 消息摘要文本
-    const summaryText = [
-      `【⚡ CodePower 额度申领提醒】`,
-      `员工【${user.displayName}】提交了 GitHub Copilot 额度申领，详情如下：`,
-      `----------------------------------------`,
-      `- 申请人员：${user.displayName} (${user.username})`,
-      `- 所属项目：${project.name}`,
-      `- 申请额度：${credit.amount} credits`,
-      `- 用量/上限：${usedCreditsNum} / ${userLimitNum} credits`,
-      `- 用途及理由：${finalReason}`,
-      `- 申请时间：${applyTime} (北京时间)`,
-      `----------------------------------------`,
-      `请开发经理登录系统 (https://codepower.pages.dev) 及时审批。`,
-    ].join('\n');
+    // 组装精炼紧凑的 Teams 消息摘要（单行纯文本，杜绝任何换行符或复杂结构导致的卡片解析异常）
+    const shortSummary = `【CodePower申请提醒】员工 ${user.displayName} 提交了 ${project.name} 项目的 ${credit.amount} credits 额度申请（用量/上限: ${usedCreditsNum}/${userLimitNum}，理由: ${finalReason}），请及时审批：https://codepower.pages.dev`;
 
     const webhookPayload = {
-      summary: summaryText,
-      text: summaryText,
-      message: summaryText,
-      title: '【CodePower】新的额度申请待审批',
+      summary: shortSummary,
+      text: shortSummary,
+      message: shortSummary,
+      content: shortSummary,
       applicantName: user.displayName,
-      applicantEmail: user.username,
       projectName: project.name,
       credits: credit.amount,
       userLimit: userLimitNum,
@@ -109,14 +97,8 @@ export const onRequestPost: PagesFunction<Env, string, { user?: JwtPayload }> = 
     };
 
     const webhookUrl = env.TEAMS_WEBHOOK_URL || DEFAULT_TEAMS_WEBHOOK_URL;
-    const notifyTask = sendTeamsNotification(webhookUrl, webhookPayload);
-
-    if (context.waitUntil) {
-      context.waitUntil(notifyTask);
-    } else {
-      // 容错兜底执行
-      await notifyTask;
-    }
+    // 直接 await 发送，确保 Cloudflare 节点在完成 HTTP 请求后再响应，带 4 秒超时与异常捕获
+    await sendTeamsNotification(webhookUrl, webhookPayload);
 
     return success();
   } catch (e: any) {

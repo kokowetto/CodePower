@@ -77,7 +77,7 @@
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">#{{ app.id }}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ app.project_name || app.projectName }}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">{{ app.credits }} credits</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ app.user_limit ?? 0 }} / {{ app.used_credits ?? 0 }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ (app.user_limit ?? app.userLimit) ?? 0 }} / {{ (app.used_credits ?? app.usedCredits) ?? 0 }}</td>
                 <td class="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">{{ app.final_reason || app.finalReason }}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ formatDate(app.created_at || app.createdAt) }}</td>
                 <td class="px-6 py-4 whitespace-nowrap">

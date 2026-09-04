@@ -34,7 +34,7 @@
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ app.project_name || app.projectName }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
               <div class="font-medium">{{ app.credits }} credits</div>
-              <div class="text-xs text-gray-500">上限: {{ app.user_limit ?? 0 }} / 已用: {{ app.used_credits ?? 0 }}</div>
+              <div class="text-xs text-gray-500">上限: {{ (app.user_limit ?? app.userLimit) ?? 0 }} / 已用: {{ (app.used_credits ?? app.usedCredits) ?? 0 }}</div>
             </td>
             <td class="px-6 py-4 text-sm text-gray-900 max-w-xs truncate" :title="app.final_reason || app.finalReason">{{ app.final_reason || app.finalReason }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ formatDate(app.created_at || app.createdAt) }}</td>

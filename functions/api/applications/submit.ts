@@ -25,7 +25,6 @@ function getNowEast8DateTime(): string {
   return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
 }
 
-
 export const onRequestPost: PagesFunction<Env, string, { user?: JwtPayload }> = async (context) => {
   const { request, env, data } = context;
   const user = data.user;

@@ -380,21 +380,32 @@ codepower/
 │   └── workflows/
 │       └── deploy.yml              # GitHub Actions 自动化部署 (可选)
 ├── functions/                      # Cloudflare Pages Functions (后端无服务器接口)
+│   ├── _helpers.ts                 # 公共工具：JSON响应、SHA-256、JWT生成与验证
 │   ├── _middleware.ts              # 全局中间件：JWT 解析与鉴权守卫
+│   ├── _teams.ts                   # Teams 消息卡片构建与 postToTeams 工业级传输模块
 │   ├── api/
 │   │   ├── auth/
 │   │   │   ├── login.ts            # 登录接口
-│   │   │   └── change-password.ts  # 改密接口
+│   │   │   └── change-password.ts  # 改密接口（含 Bearer 回退容错）
 │   │   ├── applications/
-│   │   │   ├── submit.ts           # 提单接口
+│   │   │   ├── submit.ts           # 提单接口（含 Teams 异步消息触发与个人上限/已用量落库）
 │   │   │   └── my.ts               # 我的申请
 │   │   ├── public/
 │   │   │   └── dictionaries.ts     # 公共字典接口
 │   │   └── manager/
-│   │       ├── applications.ts     # 审批列表与处理
-│   │       ├── users.ts            # 成员账号增删改查与密码重置
-│   │       ├── dictionaries.ts     # 字典维护
-│   │       └── mail-template.ts    # 邮件模板配置
+│   │       ├── applications.ts     # 审批列表与状态筛选
+│   │       ├── applications/
+│   │       │   └── review.ts       # 审批处理（同意/拒绝）
+│   │       ├── users.ts            # 成员列表
+│   │       ├── users/
+│   │       │   ├── create.ts       # 添加成员
+│   │       │   ├── toggle-status.ts# 启用/停用成员
+│   │       │   └── reset-password.ts# 重置密码
+│   │       ├── dictionaries/
+│   │       │   ├── [type].ts       # 字典列表查询与新增 (projects/credit-options/reasons)
+│   │       │   └── [type]/
+│   │       │       └── [id].ts     # 字典启停、排序更新与物理删除
+│   │       └── mail-template.ts    # 邮件模板获取与持久化配置
 ├── migrations/
 │   └── 0000_init_schema.sql        # Cloudflare D1 初始建表与种子数据
 ├── public/
@@ -402,26 +413,27 @@ codepower/
 ├── src/                            # 前端源码 (Vue 3 + Vite + TailwindCSS)
 │   ├── assets/
 │   ├── components/
-│   │   ├── Navbar.vue              # 顶部导航栏与用户信息
-│   │   └── Modal.vue
+│   │   ├── Navbar.vue              # 顶部导航栏、用户信息与版本徽章 (v1.1)
+│   │   └── Modal.vue               # 通用弹窗组件
 │   ├── views/
 │   │   ├── Login.vue               # 登录页面
-│   │   ├── UserApply.vue           # 普通用户申请与历史页面
+│   │   ├── UserApply.vue           # 普通用户申请与历史页面（含上限/已用量录入）
 │   │   └── manager/                # 经理管理相关页面
 │   │       ├── ManagerAdmin.vue    # 经理管理主台入口（Tab 容器）
-│   │       ├── ApprovalTab.vue     # 审批中心与 Outlook 联动
+│   │       ├── ApprovalTab.vue     # 审批中心与 Outlook 联动/草稿复制
 │   │       ├── UsersTab.vue        # 成员账号管理
-│   │       ├── DictionariesTab.vue # 基础字典维护
-│   │       └── MailTemplateTab.vue # 邮件模板配置
+│   │       ├── DictionariesTab.vue # 基础字典维护（含删除与排序）
+│   │       └── MailTemplateTab.vue # 邮件模板配置（含 10+ 变量实时预览）
 │   ├── utils/
-│   │   ├── outlook.ts              # mailto 邮件生成器
-│   │   └── request.ts              # fetch 请求封装
+│   │   ├── date.ts                 # 全系统统一东八区（Asia/Shanghai）时间工具集
+│   │   ├── outlook.ts              # mailto 协议邮件生成器与 CRLF 换行规范化
+│   │   └── request.ts              # fetch 请求封装与统一 401 处理
 │   ├── App.vue
 │   └── main.ts
 ├── package.json
 ├── vite.config.ts                  # Vite 构建配置
 ├── wrangler.toml                   # Cloudflare 本地调试与 D1 绑定配置
-└── README.md                       # 包含一键部署按钮的项目说明
+└── README.md                       # 包含一键部署按钮与 Win11 FAQ 的项目说明
 ```
 
 ---
@@ -548,3 +560,55 @@ npx wrangler d1 execute codepower-db --remote --file=./migrations/0000_init_sche
 
 - `JWT_SECRET` 支持环境变量覆盖，同时在 `_helpers.ts` 中内置了安全的生产兜底默认值，确保在未额外配置环境变量的情况下系统依然开箱即用。
 - 代码仓库的 `wrangler.toml` 与代码文件不存储任何明文密码或用户 Token。
+
+---
+
+## 10. 系统迭代与架构演化记录 (Changelog & Architecture Evolution)
+
+系统在经历生产部署与多轮联调演化后，持续进行了工业级加固。本节记录自初始设计以来的全量增量变更与架构演进，供后续长期运维参考。
+
+### 10.1 认证安全与全局路由守卫加固
+- **静态路由与前端资产放行**：修正了 Cloudflare Pages Functions 根中间件拦截非 `/api/` 路由的现象，明确要求 `if (!path.startsWith('/api/')) return next()`，确保前端 SPA 路由与打包静态资产（HTML/CSS/JS）零阻碍加载。
+- **改密接口 401 兜底容错**：在 `functions/api/auth/change-password.ts` 中增加了从请求头直接解析 Bearer Token 的第二道兜底逻辑，彻底解决某些边缘节点上下文注入延迟导致的改密 401 误报。
+- **初始超级管理员哈希校正**：将初始化 SQL 中的 `admin123456` 的 SHA-256 哈希值统一校正为标准的 `ac0e7d037817094e9e0b4441f9bae3209d67b02fa484917065f71b16109a1a78`。
+
+### 10.2 数据库与字典配置维护增强
+- **字典项物理删除能力**：新增 `DELETE /api/manager/dictionaries/:type/:id` 接口，前端管理台配套支持“项目名称、额度档位、用途理由”物理删除与二次确认弹窗防误触。
+- **配置即代码（Configuration as Code）**：将 D1 真实的 `database_id`（`32ea4c2e-f7a1-4c5b-a135-044bf4532158`）显式固化在 `wrangler.toml` 中，杜绝空 UUID 导致 Pages Functions 构建失败。
+
+### 10.3 额度申领关键业务字段扩充 (v1.1)
+- **字段扩增**：`applications` 数据表新增 `user_limit`（当前个人上限）与 `used_credits`（已使用量）整型字段，缺省默认值为 `0`。
+- **严格范围校验**：提交接口及前端表单均增加 `0 ~ 50000` 正整数强制校验，防止异常溢出。
+- **全链路流转**：
+  - 前端申领台新增两个必填数值框；
+  - 历史列表与经理审批中心同步展示“上限: XXXX / 已用: XXXX”；
+  - 邮件模板变量扩充 `${userLimit}` 与 `${usedCredits}`（及其兼容别名 `${personalLimit}`、`${creditsUsed}`）。
+- **版本标识**：Navbar 顶部标题旁常驻展示 `v1.1` 蓝色徽章。
+
+### 10.4 邮件模板引擎与本地 Outlook 深度适配
+- **统一东八区（Asia/Shanghai）时间工具集**：抽象出 `src/utils/date.ts`，自动识别 SQLite CURRENT_TIMESTAMP 的 UTC 格式缺失并精准换算为北京时间，解决跨时区环境时间偏差问题。
+- **动态变量体系扩充**：
+  - 增加 `${endTime}` 变量：根据申请日期自动推导所属月份最后一天（格式：YYYY-MM-DD）；
+  - 增加 `${effectiveDate}` 变量：等效于 `${applyTime}`。
+- **邮件纯日期展示**：审批草稿中涉及的生效/申请时间统一格式化为纯日期（YYYY-MM-DD），与截止日期相呼应；单据历史列表中依然完整展示时分秒。
+- **Windows 经典版 Outlook 2108 协议规范化**：
+  - 将数据库中转义的字面量 `\n`、`\r\n` 还原；
+  - 正文换行一律规范化为 `\r\n`（URI 编码为 `%0D%0A`），杜绝在经典版 Outlook 中排版挤成一行的现象。
+- **三重交互容错兜底**：
+  - 第一层：自动拉起本地 Outlook；
+  - 第二层：弹窗提供【直接在 Outlook 中打开 ↗】原生链接（应对浏览器协议拦截）；
+  - 第三层：提供【一键复制草稿内容】（收件人、抄送、主题、正文一键复制入剪贴板，彻底防止外部客户端无法调起）。
+
+### 10.5 Microsoft Teams / Power Automate 工业级集成 (v1.2)
+- **触发机制**：员工提交额度申请成功入库后，后端自动向 Power Automate Webhook 发起异步通知。
+- **Adaptive Card 1.5 规范**：针对下游直连 Teams Webhook 连接器的要求，彻底放弃扁平 JSON 格式，严格按照微软 Bot Framework / Teams 规范组装包含 `type: "message"`、`attachments[].contentType: "application/vnd.microsoft.card.adaptive"` 的 Adaptive Card 1.5 消息体。
+- **领导专属强提醒 (@mention)**：
+  - 在卡片首段嵌入 `<at>Sun, Guo Yang</at>` 强提醒语法；
+  - 在 `msteams.entities` 中注入对应的 Azure AD 实体（ID: `8:orgid:21b56c8f-8924-4d1c-8f09-740cb6962e98`，Name: `Sun, Guo Yang`），确保移动端与桌面端均能收到带名字的高优先级气泡通知。
+- **工业级传输模块（`functions/_teams.ts` - `postToTeams`）**：
+  1. **28 KB 安全守卫**：检测到消息体大于等于 28 KB 立即拦截抛错（Teams 硬上限，当前卡片体约 1.9 KB）；
+  2. **2xx 状态码宽容判定**：将 Power Automate 的 `202 Accepted` 及标准 `200 OK` 均视作发送成功；
+  3. **400 快速失败机制**：若遇客户端参数错误立即中断，避免无效重试；
+  4. **指数退避重试**：针对 429 限流（解析 `Retry-After` 头）、5xx 服务端故障及网络超时，带退避重试 2 次；
+  5. **非阻塞安全兜底**：通知发送由独立的 `try...catch` 包裹并设置 4 秒超时，无论 Webhook 通道状态如何，绝不阻断员工正常提单落库。
+

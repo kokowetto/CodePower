@@ -351,7 +351,7 @@ export function launchOutlookDraft(
 - `GET /api/public/dictionaries`：普通用户获取表单下拉字典（获取所有启用状态的 projects, credit_options, reasons）。
 
 ### 6.2 普通用户业务
-- `POST /api/applications/submit`：提交额度申请。入参 `{ projectId, creditId, userLimit, usedCredits, reasonId, extraNotes }`。
+- `POST /api/applications/submit`：提交额度申请。入参 `{ projectId, creditId, userLimit, usedCredits, reasonId, extraNotes }`。单据落库成功后，后端自动向 Power Automate Webhook 异步推送 Teams 申请提醒（带非阻塞与容错机制，支持通过 `TEAMS_WEBHOOK_URL` 环境变量自定义地址）。
 - `GET /api/applications/my`：获取当前登录用户的申请记录列表。
 
 ### 6.3 开发经理管理业务 (需校验 Manager 角色)

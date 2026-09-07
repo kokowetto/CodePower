@@ -515,6 +515,9 @@ npx wrangler d1 execute codepower-db --remote --file=./migrations/0000_init_sche
 | Variable name | 值 | 说明 |
 | :--- | :--- | :--- |
 | `JWT_SECRET` | 自定义随机字符串 | JWT 签名密钥，请勿使用示例值 |
+| `TEAMS_WEBHOOK_URL` | Power Automate Webhook 完整 URL | 消息触发 Webhook 地址（可选，不配则优雅跳过通知） |
+| `TEAMS_MENTION_NAME` | 领导姓名（如 `Sun, Guo Yang`） | 审批提醒卡片中 @ 提及的姓名（可选） |
+| `TEAMS_MENTION_ID` | 领导 AAD 实体 ID（如 `8:orgid:xxx`） | 审批提醒卡片中 @ 提及的 AAD 唯一 ID（可选） |
 
 点击 **Save**。
 
@@ -556,10 +559,11 @@ npx wrangler d1 execute codepower-db --remote --file=./migrations/0000_init_sche
   1. Cloudflare Pages Functions 根目录的中间件会拦截域名下的**每一个请求**（包括 `/`、`/index.html`、CSS、JS、Favicon 等静态资源）。
   2. 只有带 `/api/` 前缀的后端业务接口才需要进行 JWT 鉴权；前端静态资源与 SPA 客户端路由必须无条件放行，否则首页会直接返回 401 报错。
 
-### 9.3 敏感配置管理原则
+### 9.3 敏感配置与密钥解耦原则
 
+- **敏感配置全面外部化**：`JWT_SECRET`、`TEAMS_WEBHOOK_URL`、`TEAMS_MENTION_NAME`、`TEAMS_MENTION_ID` 等所有敏感密钥与个人识别信息（PII）全部由 Cloudflare Pages 后台 Environment variables 统一注入管理，代码库与 `wrangler.toml` 坚决不硬编码任何 Webhook 地址、密码或 AAD 实体 ID。
+- **无感降级容错机制**：所有环境变量均经过严格的空保护处理。若未配置 Webhook 地址，系统自动打印日志并安全跳过通知，绝不阻塞用户申请流程；若未配置提及人信息，系统自动降级为标准通告卡片，绝不会导致卡片解析失败或运行时崩溃。
 - `JWT_SECRET` 支持环境变量覆盖，同时在 `_helpers.ts` 中内置了安全的生产兜底默认值，确保在未额外配置环境变量的情况下系统依然开箱即用。
-- 代码仓库的 `wrangler.toml` 与代码文件不存储任何明文密码或用户 Token。
 
 ---
 
@@ -611,4 +615,15 @@ npx wrangler d1 execute codepower-db --remote --file=./migrations/0000_init_sche
   3. **400 快速失败机制**：若遇客户端参数错误立即中断，避免无效重试；
   4. **指数退避重试**：针对 429 限流（解析 `Retry-After` 头）、5xx 服务端故障及网络超时，带退避重试 2 次；
   5. **非阻塞安全兜底**：通知发送由独立的 `try...catch` 包裹并设置 4 秒超时，无论 Webhook 通道状态如何，绝不阻断员工正常提单落库。
+
+### 10.6 Webhook 与强提醒敏感配置全面解耦与优雅降级 (v1.3)
+- **敏感信息彻底解耦**：将代码中硬编码的 Power Automate Webhook 完整地址、领导姓名及 Azure AD 实体 ID 彻底抽离，转为统一由 Cloudflare Pages 控制台的 Environment variables（环境变量）进行密钥级托管：
+  - `TEAMS_WEBHOOK_URL`：Webhook 触发地址；
+  - `TEAMS_MENTION_NAME`：领导展示姓名；
+  - `TEAMS_MENTION_ID`：领导 AAD 组织实体 ID。
+- **全链路零阻断优雅降级（Graceful Degradation）**：
+  1. **Webhook 缺失保护**：后端在处理提单时严格校验 `env.TEAMS_WEBHOOK_URL`。若该变量为空或未定义，系统仅记录提示日志并静默跳过 Teams 发送，提单事务与 D1 落库不受任何影响；
+  2. **Mention 实体缺失保护**：自适应卡片组装器 `buildTeamsAdaptiveCard` 在未检测到提及人姓名或 AAD ID 时，自动降级为无 `@` 标记的通用待审批卡片，移除 `msteams.entities` 配置项，杜绝因空 ID 导致的 Teams 协议校验解析失败；
+  3. **环境安全边界**：代码库彻底杜绝任何生产 Webhook 凭证与组织架构内部 ID，实现安全合规。
+
 

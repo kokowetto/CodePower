@@ -1,8 +1,6 @@
 import { Env, success, error, JwtPayload } from '../../_helpers';
 import { buildTeamsAdaptiveCard, postToTeams } from '../../_teams';
 
-const DEFAULT_TEAMS_WEBHOOK_URL = 'https://default335a532847a0444489f8552b2e6cae.ea.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/5fe405563c2b4c6b8840811d8d0b2796/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Ao3ZbycC_-iDbr8ri6WbX5ymofIO2u4jcTZkKU7EKx8';
-
 function getNowEast8DateTime(): string {
   const d = new Date();
   const formatter = new Intl.DateTimeFormat('zh-CN', {
@@ -59,24 +57,31 @@ export const onRequestPost: PagesFunction<Env, string, { user?: JwtPayload }> = 
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(user.id, user.displayName, user.username, project.name, credit.amount, userLimitNum, usedCreditsNum, reason.reason_text, extraNotes || '', finalReason).run();
 
-    // 组装符合微软 Teams 官方协议的 Adaptive Card 1.5 消息体（含 @Sun, Guo Yang 强提醒与审批直达按钮）
-    const webhookPayload = buildTeamsAdaptiveCard({
-      applicantName: user.displayName,
-      applicantEmail: user.username,
-      projectName: project.name,
-      credits: credit.amount,
-      userLimit: userLimitNum,
-      usedCredits: usedCreditsNum,
-      finalReason,
-      applyTime,
-    });
+    const webhookUrl = env.TEAMS_WEBHOOK_URL?.trim();
 
-    const webhookUrl = env.TEAMS_WEBHOOK_URL || DEFAULT_TEAMS_WEBHOOK_URL;
-    // 采用经理标准的可靠传输机制（28KB安全守卫、200/202成功识别、400快速失败、重试退避），异常不阻塞单据创建
-    try {
-      await postToTeams(webhookUrl, webhookPayload, { timeoutMs: 4000, retries: 2 });
-    } catch (notifyErr) {
-      console.error('Failed to notify Teams:', notifyErr);
+    // 若配置了 TEAMS_WEBHOOK_URL，则异步发送 Teams 消息；若未配置或为空则优雅跳过，绝不阻塞或抛错
+    if (webhookUrl) {
+      try {
+        const webhookPayload = buildTeamsAdaptiveCard({
+          applicantName: user.displayName,
+          applicantEmail: user.username,
+          projectName: project.name,
+          credits: credit.amount,
+          userLimit: userLimitNum,
+          usedCredits: usedCreditsNum,
+          finalReason,
+          applyTime,
+          mentionName: env.TEAMS_MENTION_NAME?.trim(),
+          mentionId: env.TEAMS_MENTION_ID?.trim(),
+        });
+
+        // 采用经理标准的可靠传输机制（28KB安全守卫、200/202成功识别、400快速失败、重试退避），异常不阻塞单据创建
+        await postToTeams(webhookUrl, webhookPayload, { timeoutMs: 4000, retries: 2 });
+      } catch (notifyErr) {
+        console.error('Failed to notify Teams:', notifyErr);
+      }
+    } else {
+      console.log('TEAMS_WEBHOOK_URL not configured, skipping Teams notification.');
     }
 
     return success();

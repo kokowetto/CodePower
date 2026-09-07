@@ -12,6 +12,8 @@ export interface ApplicationNotificationData {
   usedCredits: number;
   finalReason: string;
   applyTime: string;
+  mentionName?: string;
+  mentionId?: string;
 }
 
 export interface PostToTeamsOptions {
@@ -24,9 +26,67 @@ const MAX_PAYLOAD_BYTES = 28 * 1024; // 28 KB Teams Webhook 硬上限
 
 /**
  * 组装符合 Teams 协议规范的 Adaptive Card 1.5 消息体
+ * 若配置了 mentionName 与 mentionId，则渲染领导强提醒；若未配置则优雅降级为常规通告卡片
  */
 export function buildTeamsAdaptiveCard(data: ApplicationNotificationData) {
-  const mentionText = '<at>Sun, Guo Yang</at>';
+  const hasMention = Boolean(data.mentionName && data.mentionId);
+  const mentionText = hasMention ? `<at>${data.mentionName}</at>` : '';
+  const greetingText = hasMention
+    ? `${mentionText} 收到新的 GitHub Copilot 额度申领，请及时审批处理：`
+    : '收到新的 GitHub Copilot 额度申领，请及时审批处理：';
+
+  const cardContent: any = {
+    $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
+    type: 'AdaptiveCard',
+    version: '1.5',
+    body: [
+      {
+        type: 'TextBlock',
+        text: '⚡ CodePower 额度申领待审批',
+        weight: 'Bolder',
+        size: 'Large',
+        color: 'Accent',
+      },
+      {
+        type: 'TextBlock',
+        text: greetingText,
+        wrap: true,
+      },
+      {
+        type: 'FactSet',
+        facts: [
+          { title: '申请人员', value: `${data.applicantName} (${data.applicantEmail})` },
+          { title: '所属项目', value: data.projectName },
+          { title: '申请额度', value: `${data.credits} credits` },
+          { title: '用量/上限', value: `${data.usedCredits} / ${data.userLimit} credits` },
+          { title: '用途理由', value: data.finalReason },
+          { title: '申请时间', value: `${data.applyTime} (北京时间)` },
+        ],
+      },
+    ],
+    actions: [
+      {
+        type: 'Action.OpenUrl',
+        title: '前往系统审批 ↗',
+        url: 'https://codepower.pages.dev',
+      },
+    ],
+  };
+
+  if (hasMention) {
+    cardContent.msteams = {
+      entities: [
+        {
+          type: 'mention',
+          text: mentionText,
+          mentioned: {
+            id: data.mentionId,
+            name: data.mentionName,
+          },
+        },
+      ],
+    };
+  }
 
   return {
     type: 'message',
@@ -34,55 +94,7 @@ export function buildTeamsAdaptiveCard(data: ApplicationNotificationData) {
       {
         contentType: 'application/vnd.microsoft.card.adaptive',
         contentUrl: null,
-        content: {
-          $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
-          type: 'AdaptiveCard',
-          version: '1.5',
-          body: [
-            {
-              type: 'TextBlock',
-              text: '⚡ CodePower 额度申领待审批',
-              weight: 'Bolder',
-              size: 'Large',
-              color: 'Accent',
-            },
-            {
-              type: 'TextBlock',
-              text: `${mentionText} 收到新的 GitHub Copilot 额度申领，请及时审批处理：`,
-              wrap: true,
-            },
-            {
-              type: 'FactSet',
-              facts: [
-                { title: '申请人员', value: `${data.applicantName} (${data.applicantEmail})` },
-                { title: '所属项目', value: data.projectName },
-                { title: '申请额度', value: `${data.credits} credits` },
-                { title: '用量/上限', value: `${data.usedCredits} / ${data.userLimit} credits` },
-                { title: '用途理由', value: data.finalReason },
-                { title: '申请时间', value: `${data.applyTime} (北京时间)` },
-              ],
-            },
-          ],
-          actions: [
-            {
-              type: 'Action.OpenUrl',
-              title: '前往系统审批 ↗',
-              url: 'https://codepower.pages.dev',
-            },
-          ],
-          msteams: {
-            entities: [
-              {
-                type: 'mention',
-                text: mentionText,
-                mentioned: {
-                  id: '8:orgid:21b56c8f-8924-4d1c-8f09-740cb6962e98',
-                  name: 'Sun, Guo Yang',
-                },
-              },
-            ],
-          },
-        },
+        content: cardContent,
       },
     ],
   };

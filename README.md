@@ -90,6 +90,19 @@ npx wrangler d1 execute codepower-db --remote --file=./migrations/0000_init_sche
    - **Build output directory (输出目录)**：`dist`
 4. 点击 **Save and Deploy**，Pages 会通过 `wrangler.toml` 中的配置自动绑定 D1 数据库。
 
+### 第三步：配置环境变量与密钥（Settings ➔ Environment variables）
+
+在 Cloudflare Pages 项目后台（**Settings** ➔ **Environment variables**）为生产环境（Production）添加以下环境变量：
+
+| 变量名称 (Variable name) | 必填 | 说明与示例 |
+| :--- | :---: | :--- |
+| `JWT_SECRET` | 否 | JWT 签名密钥（有默认安全兜底，生产环境建议自定义随机串） |
+| `TEAMS_WEBHOOK_URL` | 否 | Power Automate 的 Webhook 完整调用地址（若未配置自动跳过通知，绝不阻断提单） |
+| `TEAMS_MENTION_NAME` | 否 | Teams 卡片中被 @ 提醒的审批领导姓名（如 `Sun, Guo Yang`） |
+| `TEAMS_MENTION_ID` | 否 | Teams 卡片中被 @ 提醒的领导 Azure AD 实体 ID（如 `8:orgid:xxx`） |
+
+> 💡 **优雅降级设计**：若未配置 Webhook 地址，系统自动静默跳过 Teams 推送；若未配置领导姓名或 ID，自适应卡片自动降级为标准通告卡片，绝不会导致报错或单据阻断。
+
 ---
 
 ## 🔑 默认账号信息

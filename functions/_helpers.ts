@@ -2,6 +2,8 @@ export interface Env {
   DB: D1Database;
   JWT_SECRET: string;
   TEAMS_WEBHOOK_URL?: string;
+  TEAMS_MENTION_NAME?: string;
+  TEAMS_MENTION_ID?: string;
 }
 
 export interface JwtPayload {
